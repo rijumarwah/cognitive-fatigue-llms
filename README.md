@@ -15,6 +15,14 @@ We introduce the Fatigue Index (FI), an online diagnostic that measures long-hor
 - `configs/` – Frozen experiment configurations
 - `figures/` – Scripts output figures used in the paper
 
+| Paper Section                  | Repository Location                                  |
+|--------------------------------|------------------------------------------------------|
+| FI definition                  | `fatigue/`                                           |
+| Estimation details             | `fatigue/normalize.py`, `configs/`                   |
+| §7.1 Empirical Validation      | `experiments/empirical_validation/`                  |
+| §7.2 Architectural Stress      | `experiments/architectural_stress/`                  |
+| Figures                        | `figures/main/`, `figures/appendix/`                 |
+
 ## Setup
 
 ```bash
