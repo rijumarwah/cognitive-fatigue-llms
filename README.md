@@ -3,7 +3,7 @@
 This repository contains code accompanying the paper:
 
 **Cognitive Fatigue in Autoregressive Language Models: Formalization and Measurement**  
-(Submission to ICML 2026)
+(Accepted as a Main Track Paper at ICML 2026)
 
 We introduce the Fatigue Index (FI), an online diagnostic that measures long-horizon degradation in language models using prompt-directed attention, embedding drift, and entropy deviation.
 
