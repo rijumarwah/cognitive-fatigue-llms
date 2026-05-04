@@ -6,6 +6,7 @@ This repository contains code accompanying the paper:
 (Accepted as a Main Track Paper at ICML 2026)
 
 **Project Homepage:** https://rijumarwah.github.io/llmfatigue/
+**Try out on Colab:** https://colab.research.google.com/drive/19BTb6mKJfm_tb24CaizOJE8BoIvV3nje?usp=sharing
 
 We introduce the Fatigue Index (FI), an online diagnostic that measures long-horizon degradation in language models using prompt-directed attention, embedding drift, and entropy deviation.
 
