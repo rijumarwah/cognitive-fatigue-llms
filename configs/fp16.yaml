@@ -1,1 +1,4 @@
-
+# Precision ablation, FP16 branch (Section 5.2, "Precision and quantization").
+extends: default.yaml
+model_name: tiiuae/falcon-7b-instruct
+precision: fp16

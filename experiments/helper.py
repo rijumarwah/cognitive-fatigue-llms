@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 """
+DEPRECATED: superseded by experiments/rq2.py.
+
+This was an earlier draft of the RQ2 ablation runner. It only records the
+raw signals (attention, drift, entropy) and never aggregates them into the
+Fatigue Index -- rq2.py is the complete, current implementation and is what
+should be used going forward. Kept for reference only; do not add new
+features here. See fatigue/ for the canonical FI implementation and
+CODE_AUDIT_NOTES.md for background on this consolidation.
+
 RQ2 Ablations (simple, faithful to the fatigue snippet):
 
 Implements three experiments:

@@ -1,1 +1,8 @@
+# Architectural stress tests (Section 5.2): context-length and positional
+# sensitivity ablations. Used by experiments/rq2.py --run_context / --run_positional.
+extends: default.yaml
+model_name: tiiuae/falcon-7b-instruct
 
+context_lengths_tokens: [192, 964, 1446]   # short / medium / long, per Fig. 2
+evidence_positions: [front, middle, end]    # per Fig. 3
+max_new_tokens: 120

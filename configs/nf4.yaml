@@ -1,1 +1,7 @@
-
+# Precision ablation, 4-bit NF4 branch (Section 5.2, "Precision and quantization").
+extends: default.yaml
+model_name: tiiuae/falcon-7b-instruct
+precision: nf4
+bnb_4bit_quant_type: nf4
+bnb_4bit_use_double_quant: true
+bnb_4bit_compute_dtype: float16

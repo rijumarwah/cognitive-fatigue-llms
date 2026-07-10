@@ -1,1 +1,36 @@
+# Frozen FI calibration, mirroring Table 6 in the paper.
+# NOTE: drift_kappa and entropy_beta are not published in Table 6 (the paper
+# only says they are "fixed from a small preliminary pass"). The values below
+# are the ones used in fatigue/config.py; confirm they match the run that
+# produced the paper's reported numbers before treating this as authoritative.
 
+model_name: facebook/opt-2.7b   # main-track default per Section 7 ("Unless otherwise stated...")
+precision: fp16
+
+weights:
+  attention: 0.40
+  entropy: 0.35
+  drift: 0.25
+
+entropy_band:
+  low: 3.8
+  high: 5.0
+entropy_beta: 5.0     # unpublished in Table 6 — see note above
+drift_kappa: 20.0     # unpublished in Table 6 — see note above
+
+prompt_slice_k: 64
+probe_every: 2
+smoothing_window: 5
+
+hysteresis:
+  high: 0.50
+  low: 0.40
+
+decoding:
+  top_p: 0.95
+  temperature: 1.0
+  top_k: 0
+
+max_context_tokens: 2048
+max_new_tokens: 120
+seeds: [123, 2027]

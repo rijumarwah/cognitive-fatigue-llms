@@ -302,59 +302,13 @@ def _plot_aggregate_groups_on_ax(ax, group_series: Dict[str, List[List[float]]],
 
 
 # --- Metrics from your snippet ---
-def get_prompt_attention(attn_np: np.ndarray, prompt_span: List[int]) -> float:
-    """
-    attn_np: numpy (H, S, S) from the last layer.
-    Score = mean attention from the last query position to a fixed prompt span.
-    """
-    if attn_np is None or getattr(attn_np, "ndim", 0) != 3:
-        print("messed up: bad attention tensor for get_prompt_attention")
-        return 0.0
-    if not prompt_span:
-        return 0.0
-    _, S, _ = attn_np.shape
-    valid = [i for i in prompt_span if 0 <= i < S - 1]
-    if not valid:
-        return 0.0
-    return float(np.nanmean(attn_np[:, -1, valid]))
-
-
-def get_evidence_attention(attn_np: np.ndarray, ev_span: List[int]) -> float:
-    """
-    Mean attention from last query to the provided evidence span indices.
-    """
-    if attn_np is None or getattr(attn_np, "ndim", 0) != 3:
-        return 0.0
-    if not ev_span:
-        return 0.0
-    _, S, _ = attn_np.shape
-    valid = [i for i in ev_span if 0 <= i < S]
-    if not valid:
-        return 0.0
-    return float(np.nanmean(attn_np[:, -1, valid]))
-
-
-def get_embedding_drift(current_hidden: torch.Tensor, ref_hidden: torch.Tensor) -> float:
-    if current_hidden is None or ref_hidden is None:
-        print("messed up: hidden state missing for get_embedding_drift")
-        return 0.0
-    return float(torch.norm(current_hidden - ref_hidden, p=2).item())
-
-
-def get_entropy(logits: torch.Tensor) -> float:
-    if logits is None or logits.ndim < 3:
-        print("messed up: logits missing for get_entropy")
-        return 0.0
-    last_logits = logits[0, -1, :]
-    if last_logits.dtype in (torch.float16, torch.bfloat16):
-        last_logits = last_logits.float()
-    log_probs = F.log_softmax(last_logits, dim=-1)
-    probs = torch.exp(log_probs)
-    entropy = -(probs * log_probs).sum()
-    if not torch.isfinite(entropy):
-        print("messed up: non-finite entropy")
-        return 0.0
-    return float(entropy.item())
+# Raw signal extraction (prompt attention, evidence attention, embedding
+# drift, entropy) now lives in fatigue.attention / fatigue.drift /
+# fatigue.entropy -- this used to be a second, independently-maintained copy
+# of that logic. Imported here for call-site compatibility.
+from fatigue.attention import get_prompt_attention, get_evidence_attention
+from fatigue.drift import get_embedding_drift
+from fatigue.entropy import get_entropy
 
 
 def sample_next_token(logits: torch.Tensor, temperature: float, top_p: float, top_k: int) -> torch.Tensor:
@@ -433,62 +387,44 @@ def _smooth_series(series: List[float], window: int) -> List[float]:
     return out
 
 
-def _phi_attention(attn_series: List[float]) -> List[float]:
-    if not isinstance(attn_series, list) or not attn_series:
-        return []
-    early_n = min(FI_SMOOTH_WINDOW, max(0, len(attn_series) - 1))
-    early = attn_series[:1 + early_n]
-    baseline = float(np.mean(early))
-    drops = [baseline - v for v in attn_series]
-    early_drops = drops[:1 + early_n]
-    min_d = float(min(early_drops))
-    max_d = float(max(early_drops))
-    rng = max_d - min_d
-    if rng <= 1e-8:
-        return [0.0 for _ in drops]
-    out = [(d - min_d) / rng for d in drops]
-    return [min(1.0, max(0.0, float(v))) for v in out]
+# NOTE: the previous versions of _phi_attention and _phi_drift here performed
+# per-run adaptive normalization (min-max against that sequence's own early
+# window / own max), which is NOT the fixed-calibration transform described
+# in the paper's Eq. 1 / Section 6.2 (phi_A = 1 - clip(A,0,1),
+# phi_D = clip(D/kappa, 0,1) with kappa frozen ahead of time). That version
+# also diverged from Reliability_of_Fatigue_Index.ipynb, which used a
+# different, also-fixed calibration. This now imports the single canonical,
+# paper-faithful implementation from fatigue.normalize / fatigue.hysteresis.
+# See fatigue/config.py for where drift_kappa / entropy_beta (unpublished in
+# Table 6) are set, and confirm those match what actually produced the
+# paper's reported numbers.
+from fatigue.config import FatigueConfig
+from fatigue.normalize import (
+    phi_attention_series as _phi_attention,
+    phi_entropy_series as _phi_entropy,
+    phi_drift_series as _phi_drift,
+)
+from fatigue.hysteresis import apply_hysteresis as _apply_hysteresis_base
 
-
-def _phi_entropy(entropy_series: List[float]) -> List[float]:
-    if not isinstance(entropy_series, list) or not entropy_series:
-        return []
-    band = max(1e-6, float(ENTROPY_BAND_HIGH - ENTROPY_BAND_LOW))
-    out = []
-    for e in entropy_series:
-        if e < ENTROPY_BAND_LOW:
-            dev = ENTROPY_BAND_LOW - e
-        elif e > ENTROPY_BAND_HIGH:
-            dev = e - ENTROPY_BAND_HIGH
-        else:
-            dev = 0.0
-        out.append(min(1.0, max(0.0, float(dev / band))))
-    return out
-
-
-def _phi_drift(drift_series: List[float]) -> List[float]:
-    if not isinstance(drift_series, list) or not drift_series:
-        return []
-    max_d = float(max(drift_series))
-    if max_d <= 1e-8:
-        return [0.0 for _ in drift_series]
-    return [min(1.0, max(0.0, float(d / max_d))) for d in drift_series]
+_FI_CONFIG = FatigueConfig(
+    weight_attention=FI_WEIGHT_ATTN, weight_entropy=FI_WEIGHT_ENT, weight_drift=FI_WEIGHT_DRIFT,
+    entropy_band_low=ENTROPY_BAND_LOW, entropy_band_high=ENTROPY_BAND_HIGH,
+    prompt_slice_k=PROMPT_SLICE_K, probe_every=PROBE_EVERY, smoothing_window=FI_SMOOTH_WINDOW,
+    hysteresis_high=FI_HYSTERESIS_HIGH, hysteresis_low=FI_HYSTERESIS_LOW,
+    max_context_tokens=MAX_CONTEXT_TOKENS, max_new_tokens=DEFAULT_MAX_NEW,
+    top_p=DEFAULT_TOP_P, temperature=DEFAULT_TEMPERATURE, top_k=DEFAULT_TOP_K,
+)
 
 
 def _apply_hysteresis(series: List[float],
                       high: float = FI_HYSTERESIS_HIGH,
                       low: float = FI_HYSTERESIS_LOW) -> List[int]:
-    if not isinstance(series, list) or not series:
-        return []
-    state = 0
-    out = []
-    for v in series:
-        if state == 0 and v >= high:
-            state = 1
-        elif state == 1 and v <= low:
-            state = 0
-        out.append(state)
-    return out
+    cfg = _FI_CONFIG if (high == FI_HYSTERESIS_HIGH and low == FI_HYSTERESIS_LOW) else FatigueConfig(
+        weight_attention=FI_WEIGHT_ATTN, weight_entropy=FI_WEIGHT_ENT, weight_drift=FI_WEIGHT_DRIFT,
+        entropy_band_low=ENTROPY_BAND_LOW, entropy_band_high=ENTROPY_BAND_HIGH,
+        hysteresis_high=high, hysteresis_low=low,
+    )
+    return _apply_hysteresis_base(series, cfg)
 
 
 def _entropy_in_band_pct(entropy_series: List[float],
@@ -514,17 +450,11 @@ def _mean_entropy_last_k(entropy_series: List[float], k: int = ENTROPY_LAST_K) -
 def _fatigue_index_series(attn_series: List[float],
                           drift_series: List[float],
                           entropy_series: List[float]) -> List[float]:
-    a = _gen_series(_phi_attention(attn_series))
-    d = _gen_series(_phi_drift(drift_series))
-    e = _gen_series(_phi_entropy(entropy_series))
-    n = min(len(a), len(d), len(e))
-    if n == 0:
-        return []
-    fi = [
-        (FI_WEIGHT_ATTN * a[i]) + (FI_WEIGHT_DRIFT * d[i]) + (FI_WEIGHT_ENT * e[i])
-        for i in range(n)
-    ]
-    return _smooth_series(fi, FI_SMOOTH_WINDOW)
+    """FI_t trajectory via the canonical, paper-faithful fatigue.index
+    implementation (fixed phi_A/phi_E/phi_D, Table-6 weights/bands, anchor
+    step dropped, smoothed)."""
+    from fatigue.index import compute_fi_series
+    return compute_fi_series(attn_series, drift_series, entropy_series, _FI_CONFIG)
 
 
 def _mean(series: List[float]) -> float:
