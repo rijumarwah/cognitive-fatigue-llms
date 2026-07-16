@@ -1,1 +1,27 @@
-
+# Architectural stress sweep settings (paper Sec. 5.2). FI calibration is the
+# Table 6 default; this file documents the stress-specific sweep dimensions.
+fatigue:
+  prompt_slice_k: 64
+  probe_every: 2
+  w_attention: 0.40
+  w_entropy: 0.35
+  w_drift: 0.25
+  entropy_band_low: 3.8
+  entropy_band_high: 5.0
+  entropy_beta: 5.0
+  drift_cap: 20.0
+  smooth_window: 5
+  hysteresis_high: 0.50
+  hysteresis_low: 0.40
+stress:
+  context_lengths_tokens: [256, 1024, 1536]   # short / medium / long filler
+  evidence_positions: [front, middle, end]
+  precision: [fp, 4bit]
+  filler_tokens_positional: 200
+run:
+  model: facebook/opt-2.7b
+  max_new_tokens: 120
+  top_p: 0.95
+  top_k: 0
+  temperature: 1.0
+  seeds: [123, 2027]
