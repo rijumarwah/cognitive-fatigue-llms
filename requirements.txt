@@ -1,1 +1,25 @@
+# Core
+torch>=2.1
+transformers>=4.38
+accelerate>=0.27
+bitsandbytes>=0.43   # 4-bit NF4 quantization; requires a CUDA GPU
+datasets>=2.18
+
+# Fatigue Index package
+numpy>=1.24
+pyyaml>=6.0
+
+# Empirical validation / analysis (Spearman, AUROC cross-checks; optional at
+# runtime -- experiments/empirical_validation/run_validation.py ships numpy
+# fallbacks for both, but scipy/scikit-learn are used if present)
+scipy>=1.11
+scikit-learn>=1.3
+pandas>=2.0
+
+# Plotting
+matplotlib>=3.8
+seaborn>=0.13
+
+# Tests
+pytest>=7.4
 
