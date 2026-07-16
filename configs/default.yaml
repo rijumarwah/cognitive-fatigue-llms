@@ -1,1 +1,29 @@
+# Fatigue Index -- default calibration (paper Appendix A, Table 6).
+# Frozen constants selected once from a small preliminary pass, then held
+# fixed for every experiment. Loadable via:
+#     from fatigue import FatigueConfig
+#     cfg = FatigueConfig.from_yaml("configs/default.yaml")
+fatigue:
+  prompt_slice_k: 64        # K: prompt tokens used for attention-to-prompt (A_t)
+  probe_every: 2            # probe frequency (tokens)
+  w_attention: 0.40         # w_A
+  w_entropy: 0.35           # w_E
+  w_drift: 0.25             # w_D
+  entropy_band_low: 3.8     # H_l  (healthy entropy band, lower edge)
+  entropy_band_high: 5.0    # H_u  (healthy entropy band, upper edge)
+  entropy_beta: 5.0         # beta (phi_E high-side slope; frozen preliminary value)
+  drift_cap: 20.0           # kappa (phi_D saturation cap; frozen preliminary value)
+  smooth_window: 5          # L: FI smoothing window
+  hysteresis_high: 0.50     # theta
+  hysteresis_low: 0.40      # theta_low
 
+# Generation defaults (mirror the CLI defaults of the experiment scripts).
+run:
+  model: facebook/opt-2.7b
+  precision: fp             # fp16/fp32 autoselected by device
+  max_new_tokens: 120
+  max_context_tokens: 2048
+  top_p: 0.95
+  top_k: 0
+  temperature: 1.0
+  seeds: [123, 2027]
